@@ -28,12 +28,12 @@ class MainActivity : AppCompatActivity() {
 
 @Composable
 fun Greeting(name: String) {
-    //var x = state { 0 }
-    //Card {
-    //    Button(onClick = { /*x.value += 1*/ }) {
-            Text(text = "Hello $name ${0/*x.value*/}!")
-    //    }
-    //}
+    var x = state { 0 }
+    Card {
+        Button(onClick = { x.value += 1 }) {
+            Text(text = "Hello $name ${x.value}!")
+        }
+    }
 }
 
 @Preview
