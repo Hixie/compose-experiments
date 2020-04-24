@@ -1,43 +1,88 @@
 package com.example.myapplication
 
 import android.os.Bundle
+import android.os.Looper
+import android.os.Handler
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.*
+import androidx.compose.frames.ModelList
+import androidx.compose.frames.modelListOf
+import androidx.lifecycle.LiveData
+import androidx.ui.core.Modifier
 import androidx.ui.core.setContent
 import androidx.ui.foundation.Text
+import androidx.ui.foundation.TextField
+import androidx.ui.foundation.TextFieldValue
 import androidx.ui.layout.Column
-import androidx.ui.material.Button
-import androidx.ui.material.Card
-import androidx.ui.material.MaterialTheme
+import androidx.ui.layout.LayoutPadding
+import androidx.ui.layout.padding
+import androidx.ui.material.*
 import androidx.ui.tooling.preview.Preview
+import androidx.ui.unit.dp
 import okhttp3.*
 import okio.ByteString
 import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
-    private var connection: CommsConnection? = null
+    private val connection: MutableState<CommsConnection?> = mutableStateOf(null)
+
+    private val value: MutableState<String> = mutableStateOf("hello")
+    private val pattern: MutableState<String> = mutableStateOf("h?l?o")
+
+    private val responses: ModelList<String> = ModelList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
                 Column {
-                    Greeting("Alice", connection)
-                    Greeting("Bob", connection)
-                    Greeting("Charley", connection)
+                    FilledTextField(
+                        value = value.value,
+                        onValueChange = { userValue: String ->
+                            value.value = userValue
+                        },
+                        label = { Text("Value") },
+                        modifier = Modifier.padding(8.0.dp)
+                    )
+                    FilledTextField(
+                        value = pattern.value,
+                        onValueChange = { userValue: String ->
+                            pattern.value = userValue
+                        },
+                        label = { Text("Pattern") },
+                        modifier = Modifier.padding(8.0.dp)
+                    )
+                    Greeting(connection.value, value.value, pattern.value)
+                    if (responses.isNotEmpty()) {
+                        AlertDialog(
+                            onCloseRequest = { },
+                            title = { Text("Message from server") },
+                            text = { Text(responses.first()) },
+                            confirmButton = {
+                                Button(
+                                    onClick = {
+                                        responses.removeAt(0)
+                                    }
+                                ) { Text("Dismiss") }
+                            }
+                        )
+                    }
                 }
             }
         }
-
-        connection = CommsConnection();
-        connection!!.connect()
+        val uiThreadHandler = Handler(Looper.getMainLooper())
+        connection.value = CommsConnection { uiThreadHandler.post { responses.add(it) } }
+//        connection.value = CommsConnection() { responses.value.add(it) }
+//        connection.value = CommsConnection() { it: String -> responses.value.add(it) }
+//        connection.value = CommsConnection(fun (it: String) { responses.value.add(it) })
+        connection.value!!.connect()
     }
 }
 
 private enum class CommsStatus { idle, connecting, connected, disconnecting }
 
-private class CommsConnection : WebSocketListener() {
+private class CommsConnection(val onResponse: (String) -> Unit) : WebSocketListener() {
     var socket: WebSocket? = null
     var status: CommsStatus = CommsStatus.idle
 
@@ -72,6 +117,7 @@ private class CommsConnection : WebSocketListener() {
 
     override fun onMessage(webSocket: WebSocket?, text: String?) {
         output("Websocket received: \"" + text!! + "\"")
+        onResponse(text)
     }
 
     override fun onMessage(webSocket: WebSocket?, bytes: ByteString?) {
@@ -107,14 +153,19 @@ private class CommsConnection : WebSocketListener() {
 }
 
 @Composable
-private fun Greeting(name: String, connection: CommsConnection) {
-    var x = state { 0 }
-    Card {
-        Button(onClick = {
-            x.value += 1
-            connection.send(name)
-        }) {
-            Text(text = "Hello $name ${x.value}!")
+private fun Greeting(connection: CommsConnection?, userValue: String, patternValue: String) {
+    Card(
+        modifier = Modifier.padding(24.0.dp),
+        elevation = 4.0.dp
+    ) {
+        Button(
+            onClick = {
+                connection!!.send("$patternValue,$userValue")
+            },
+            enabled = connection != null,
+            modifier = Modifier.padding(12.0.dp)
+        ) {
+            Text(text = "Test '$userValue' against '$patternValue'")
         }
     }
 }
@@ -123,6 +174,6 @@ private fun Greeting(name: String, connection: CommsConnection) {
 @Composable
 fun DefaultPreview() {
     MaterialTheme {
-        Greeting("Android")
+        //Greeting("Android"[])
     }
 }
