@@ -24,13 +24,24 @@ import okhttp3.*
 import okio.ByteString
 import java.util.concurrent.TimeUnit
 
+data class TreeplateResponse(val message: String) {
+    companion object {
+        private var lastId: Int = 0
+        private fun getNextId(): Int {
+            lastId += 1;
+            return lastId;
+        }
+    }
+    val id: Int = TreeplateResponse.getNextId()
+}
+
 class MainActivity : AppCompatActivity() {
     private val connection: MutableState<CommsConnection?> = mutableStateOf(null)
 
     private val value: MutableState<String> = mutableStateOf("hello")
     private val pattern: MutableState<String> = mutableStateOf("h?l?o")
 
-    private val responses: ModelList<String> = ModelList()
+    private val responses: ModelList<TreeplateResponse> = ModelList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,10 +66,11 @@ class MainActivity : AppCompatActivity() {
                     )
                     Greeting(connection.value, value.value, pattern.value)
                     if (responses.isNotEmpty()) {
+                        //val response: TreeplateResponse = responses.first()
                         AlertDialog(
                             onCloseRequest = { },
-                            title = { Text("Message from server") },
-                            text = { Text(responses.first()) },
+                            title = { Text("Message ${responses.first().id} from server") },
+                            text = { Text(responses.first().message) },
                             confirmButton = {
                                 Button(
                                     onClick = {
@@ -72,7 +84,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         val uiThreadHandler = Handler(Looper.getMainLooper())
-        connection.value = CommsConnection { uiThreadHandler.post { responses.add(it) } }
+        connection.value = CommsConnection { uiThreadHandler.post { responses.add(TreeplateResponse(it)) } }
 //        connection.value = CommsConnection() { responses.value.add(it) }
 //        connection.value = CommsConnection() { it: String -> responses.value.add(it) }
 //        connection.value = CommsConnection(fun (it: String) { responses.value.add(it) })
